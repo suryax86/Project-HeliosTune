@@ -17,7 +17,6 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -45,6 +44,7 @@ fun AudioSettingsDialog(
     val accent = HeliosColors.parseColor(themeConfig.accentColorHex)
     var speed by remember { mutableFloatStateOf(audioPlayer.playbackSpeed.value) }
     var pitch by remember { mutableFloatStateOf(audioPlayer.pitch.value) }
+    var timerSliderMinutes by remember { mutableFloatStateOf((sleepTimerMinutesLeft ?: 30).toFloat()) }
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -110,41 +110,75 @@ fun AudioSettingsDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Sleep Timer Section
+                // Sleep Timer Progress Bar Adjustment Section
                 Text(
-                    text = if (sleepTimerMinutesLeft != null) "Sleep Timer: $sleepTimerMinutesLeft mins remaining" else "Sleep Timer",
+                    text = if (sleepTimerMinutesLeft != null) "Sleep Timer: Active ($sleepTimerMinutesLeft mins left)" else "Sleep Timer Duration: ${timerSliderMinutes.toInt()} mins",
                     color = Color.White,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold
                 )
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Slider(
+                    value = timerSliderMinutes,
+                    onValueChange = { timerSliderMinutes = it },
+                    valueRange = 5f..120f,
+                    steps = 22,
+                    colors = SliderDefaults.colors(
+                        thumbColor = accent,
+                        activeTrackColor = accent,
+                        inactiveTrackColor = Color.White.copy(alpha = 0.2f)
+                    )
+                )
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    val timerOptions = listOf(15, 30, 45, 60)
-                    timerOptions.forEach { mins ->
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(accent.copy(alpha = 0.2f))
-                                .clickable { audioPlayer.startSleepTimer(mins) }
-                                .padding(horizontal = 12.dp, vertical = 8.dp)
-                        ) {
-                            Text("${mins}m", color = accent, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    val presetTimes = listOf(15, 30, 45, 60)
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        presetTimes.forEach { mins ->
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(if (timerSliderMinutes.toInt() == mins) accent else Color.White.copy(alpha = 0.1f))
+                                    .clickable {
+                                        timerSliderMinutes = mins.toFloat()
+                                        audioPlayer.startSleepTimer(mins)
+                                    }
+                                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Text(
+                                    text = "${mins}m",
+                                    color = if (timerSliderMinutes.toInt() == mins) Color.Black else Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.sp
+                                )
+                            }
                         }
                     }
-                    if (sleepTimerMinutesLeft != null) {
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(HeliosColors.HeliosFlame.copy(alpha = 0.2f))
-                                .clickable { audioPlayer.cancelSleepTimer() }
-                                .padding(horizontal = 12.dp, vertical = 8.dp)
-                        ) {
-                            Text("Off", color = HeliosColors.HeliosFlame, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (sleepTimerMinutesLeft != null) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(HeliosColors.HeliosFlame.copy(alpha = 0.2f))
+                                    .clickable { audioPlayer.cancelSleepTimer() }
+                                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Text("Cancel", color = HeliosColors.HeliosFlame, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            }
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(accent)
+                                    .clickable { audioPlayer.startSleepTimer(timerSliderMinutes.toInt()) }
+                                    .padding(horizontal = 14.dp, vertical = 6.dp)
+                            ) {
+                                Text("Set", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            }
                         }
                     }
                 }

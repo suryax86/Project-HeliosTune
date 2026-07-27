@@ -1,5 +1,8 @@
 package com.example.ui.navigation
 
+import android.app.Activity
+import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
@@ -9,7 +12,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
@@ -25,12 +27,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -54,6 +58,24 @@ fun HeliosAppContainer(viewModel: HeliosViewModel) {
     var isPlayerExpanded by remember { mutableStateOf(false) }
     var showAudioSettings by remember { mutableStateOf(false) }
     var showQueueSheet by remember { mutableStateOf(false) }
+
+    val context = LocalContext.current
+    var lastBackPressTime by remember { mutableLongStateOf(0L) }
+
+    // Tap back button twice to exit
+    BackHandler {
+        if (isPlayerExpanded) {
+            isPlayerExpanded = false
+        } else {
+            val now = System.currentTimeMillis()
+            if (now - lastBackPressTime < 2000) {
+                (context as? Activity)?.finish()
+            } else {
+                lastBackPressTime = now
+                Toast.makeText(context, "Tap back button twice to exit", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     val themeConfig by viewModel.themeConfig.collectAsState()
     val accent = HeliosColors.parseColor(themeConfig.accentColorHex)
@@ -105,7 +127,10 @@ fun HeliosAppContainer(viewModel: HeliosViewModel) {
                 ) {
                     NavigationBarItem(
                         selected = activeTab == NavTab.HOME,
-                        onClick = { activeTab = NavTab.HOME },
+                        onClick = {
+                            isPlayerExpanded = false
+                            activeTab = NavTab.HOME
+                        },
                         icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
                         label = { Text("Home", fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
                         colors = NavigationBarItemDefaults.colors(
@@ -119,7 +144,10 @@ fun HeliosAppContainer(viewModel: HeliosViewModel) {
 
                     NavigationBarItem(
                         selected = activeTab == NavTab.LIBRARY,
-                        onClick = { activeTab = NavTab.LIBRARY },
+                        onClick = {
+                            isPlayerExpanded = false
+                            activeTab = NavTab.LIBRARY
+                        },
                         icon = { Icon(Icons.Default.LibraryMusic, contentDescription = "Library") },
                         label = { Text("Library", fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
                         colors = NavigationBarItemDefaults.colors(
@@ -133,7 +161,10 @@ fun HeliosAppContainer(viewModel: HeliosViewModel) {
 
                     NavigationBarItem(
                         selected = activeTab == NavTab.SEARCH,
-                        onClick = { activeTab = NavTab.SEARCH },
+                        onClick = {
+                            isPlayerExpanded = false
+                            activeTab = NavTab.SEARCH
+                        },
                         icon = { Icon(Icons.Default.Search, contentDescription = "Search") },
                         label = { Text("Search", fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
                         colors = NavigationBarItemDefaults.colors(
@@ -147,7 +178,10 @@ fun HeliosAppContainer(viewModel: HeliosViewModel) {
 
                     NavigationBarItem(
                         selected = activeTab == NavTab.SETTINGS,
-                        onClick = { activeTab = NavTab.SETTINGS },
+                        onClick = {
+                            isPlayerExpanded = false
+                            activeTab = NavTab.SETTINGS
+                        },
                         icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
                         label = { Text("Settings", fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
                         colors = NavigationBarItemDefaults.colors(
@@ -182,8 +216,13 @@ fun HeliosAppContainer(viewModel: HeliosViewModel) {
                         onFavoriteToggle = { song -> viewModel.toggleFavorite(song) },
                         onPinToggle = { song -> viewModel.togglePinSong(song) },
                         onEditMetadata = { song -> viewModel.openMetadataEditor(song) },
-                        onCreatePlaylist = {
-                            viewModel.createPlaylist("Custom Playlist #${playlists.size + 1}", "Personal collection", "Gradient")
+                        onCreatePlaylist = { name, desc ->
+                            viewModel.createPlaylist(name, desc, "Gradient")
+                        },
+                        onPlaylistSelect = { playlist ->
+                            if (allSongs.isNotEmpty()) {
+                                viewModel.audioPlayer.loadQueueAndPlay(allSongs, 0)
+                            }
                         }
                     )
                 }

@@ -4,6 +4,8 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
+import android.media.MediaPlayer
+import android.net.Uri
 import com.example.data.model.Song
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -13,6 +15,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.io.File
 import kotlin.math.sin
 
 enum class RepeatMode { OFF, ALL, ONE }
@@ -56,6 +59,7 @@ class AudioPlayerManager(private val context: Context) {
     private val _sleepTimerMinutesLeft = MutableStateFlow<Int?>(null)
     val sleepTimerMinutesLeft: StateFlow<Int?> = _sleepTimerMinutesLeft.asStateFlow()
 
+    private var mediaPlayer: MediaPlayer? = null
     private var progressJob: Job? = null
     private var sleepTimerJob: Job? = null
     private var synthTrack: AudioTrack? = null
@@ -69,12 +73,36 @@ class AudioPlayerManager(private val context: Context) {
     }
 
     fun playSong(song: Song) {
-        _currentSong.value = song
-        _durationMs.value = if (song.durationMs > 0) song.durationMs else 180000L
-        _progressMs.value = 0L
-        _isPlaying.value = true
-
+        stopMedia()
         stopSynth()
+
+        _currentSong.value = song
+        _progressMs.value = 0L
+
+        if (song.path.isNotEmpty() && File(song.path).exists()) {
+            try {
+                val mp = MediaPlayer().apply {
+                    setDataSource(context, Uri.parse(song.path))
+                    prepare()
+                    start()
+                }
+                mp.setOnCompletionListener {
+                    handlePlaybackCompleted()
+                }
+                mediaPlayer = mp
+                _durationMs.value = mp.duration.toLong().coerceAtLeast(1000L)
+                _isPlaying.value = true
+                startProgressLoop()
+                startSpectrumEmulation()
+                return
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
+        // Fallback to synthesized audio tone
+        _durationMs.value = if (song.durationMs > 0) song.durationMs else 180000L
+        _isPlaying.value = true
         startSynthTone()
         startProgressLoop()
     }
@@ -84,13 +112,20 @@ class AudioPlayerManager(private val context: Context) {
             playSong(_queue.value[0])
             return
         }
-        _isPlaying.value = !_isPlaying.value
-        if (_isPlaying.value) {
+
+        val playing = !_isPlaying.value
+        _isPlaying.value = playing
+
+        mediaPlayer?.let { mp ->
+            if (playing) mp.start() else mp.pause()
+        }
+
+        if (playing) {
             startProgressLoop()
-            startSynthTone()
+            if (mediaPlayer == null) startSynthTone() else startSpectrumEmulation()
         } else {
             stopProgressLoop()
-            stopSynth()
+            if (mediaPlayer == null) stopSynth()
         }
     }
 
@@ -115,7 +150,9 @@ class AudioPlayerManager(private val context: Context) {
     }
 
     fun seekTo(positionMs: Long) {
-        _progressMs.value = positionMs.coerceIn(0L, _durationMs.value)
+        val pos = positionMs.coerceIn(0L, _durationMs.value)
+        _progressMs.value = pos
+        mediaPlayer?.seekTo(pos.toInt())
     }
 
     fun toggleShuffle() {
@@ -132,6 +169,13 @@ class AudioPlayerManager(private val context: Context) {
 
     fun setPlaybackSpeed(speed: Float) {
         _playbackSpeed.value = speed
+        mediaPlayer?.let { mp ->
+            try {
+                mp.playbackParams = mp.playbackParams.setSpeed(speed)
+            } catch (e: Exception) {
+                // Ignore parameter errors on older platforms
+            }
+        }
     }
 
     fun setPitch(pitchValue: Float) {
@@ -150,6 +194,7 @@ class AudioPlayerManager(private val context: Context) {
             }
             // Timer expired -> pause playback
             _isPlaying.value = false
+            mediaPlayer?.pause()
             stopProgressLoop()
             stopSynth()
             _sleepTimerMinutesLeft.value = null
@@ -161,33 +206,42 @@ class AudioPlayerManager(private val context: Context) {
         _sleepTimerMinutesLeft.value = null
     }
 
+    private fun handlePlaybackCompleted() {
+        when (_repeatMode.value) {
+            RepeatMode.ONE -> {
+                _currentSong.value?.let { playSong(it) }
+            }
+            RepeatMode.ALL -> {
+                skipToNext()
+            }
+            RepeatMode.OFF -> {
+                if (_currentIndex.value < _queue.value.size - 1) {
+                    skipToNext()
+                } else {
+                    _isPlaying.value = false
+                    _progressMs.value = _durationMs.value
+                }
+            }
+        }
+    }
+
     private fun startProgressLoop() {
         progressJob?.cancel()
         progressJob = scope.launch(Dispatchers.Main) {
             while (_isPlaying.value) {
                 delay(200L)
-                val step = (200 * _playbackSpeed.value).toLong()
-                val newProgress = _progressMs.value + step
-                if (newProgress >= _durationMs.value) {
-                    when (_repeatMode.value) {
-                        RepeatMode.ONE -> {
-                            _progressMs.value = 0L
-                        }
-                        RepeatMode.ALL -> {
-                            skipToNext()
-                        }
-                        RepeatMode.OFF -> {
-                            if (_currentIndex.value < _queue.value.size - 1) {
-                                skipToNext()
-                            } else {
-                                _isPlaying.value = false
-                                _progressMs.value = _durationMs.value
-                                stopSynth()
-                            }
-                        }
+                mediaPlayer?.let { mp ->
+                    if (mp.isPlaying) {
+                        _progressMs.value = mp.currentPosition.toLong()
                     }
-                } else {
-                    _progressMs.value = newProgress
+                } ?: run {
+                    val step = (200 * _playbackSpeed.value).toLong()
+                    val newProgress = _progressMs.value + step
+                    if (newProgress >= _durationMs.value) {
+                        handlePlaybackCompleted()
+                    } else {
+                        _progressMs.value = newProgress
+                    }
                 }
             }
         }
@@ -195,6 +249,24 @@ class AudioPlayerManager(private val context: Context) {
 
     private fun stopProgressLoop() {
         progressJob?.cancel()
+    }
+
+    private fun startSpectrumEmulation() {
+        synthJob?.cancel()
+        synthJob = scope.launch(Dispatchers.IO) {
+            var step = 0L
+            while (_isPlaying.value) {
+                delay(100L)
+                step++
+                val newSpectrum = FloatArray(24)
+                for (b in 0 until 24) {
+                    val bandFreq = (b + 1) * 0.35f
+                    val modulation = sin(step * 0.2 + bandFreq) * 0.45 + 0.5
+                    newSpectrum[b] = modulation.toFloat().coerceIn(0.1f, 0.95f)
+                }
+                _audioSpectrum.value = newSpectrum
+            }
+        }
     }
 
     private fun startSynthTone() {
@@ -242,7 +314,6 @@ class AudioPlayerManager(private val context: Context) {
                     }
                     synthTrack?.write(buffer, 0, buffer.size)
 
-                    // Real spectral analysis across 24 frequency bands from PCM energy
                     step++
                     val baseEnergy = (Math.sqrt(rmsAcc / buffer.size) / 8000.0).coerceIn(0.1, 1.0)
                     val newSpectrum = FloatArray(24)
@@ -270,5 +341,15 @@ class AudioPlayerManager(private val context: Context) {
             // Ignore cleanup
         }
         synthTrack = null
+    }
+
+    private fun stopMedia() {
+        try {
+            mediaPlayer?.stop()
+            mediaPlayer?.release()
+        } catch (e: Exception) {
+            // Ignore
+        }
+        mediaPlayer = null
     }
 }

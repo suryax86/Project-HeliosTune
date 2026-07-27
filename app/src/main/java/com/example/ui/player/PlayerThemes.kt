@@ -34,7 +34,6 @@ import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -48,8 +47,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -87,13 +86,14 @@ fun MainPlayerView(
     spectrum: FloatArray? = null,
     modifier: Modifier = Modifier
 ) {
-    val accent = HeliosColors.parseColor(themeConfig.accentColorHex)
+    val primaryAccent = HeliosColors.parseColor(themeConfig.accentColorHex)
+    val secondaryAccent = HeliosColors.parseColor(themeConfig.secondaryAccentHex)
     val bg = if (themeConfig.isAmoledMode) HeliosColors.AmoledBlack else HeliosColors.DarkCardBg
 
     // Rotating album art animation if enabled
     val rotationAngle = remember { Animatable(0f) }
     LaunchedEffect(isPlaying) {
-        if (isPlaying && themeConfig.isRotateArtwork) {
+        if (isPlaying && themeConfig.isRotateArtwork && themeConfig.isAnimationsEnabled) {
             rotationAngle.animateTo(
                 targetValue = 360f,
                 animationSpec = infiniteRepeatable(
@@ -112,6 +112,21 @@ fun MainPlayerView(
             .background(bg)
             .padding(20.dp)
     ) {
+        // Ambient background blur glow if enabled
+        if (themeConfig.isBlurEffectEnabled) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(30.dp)
+                    .clip(CircleShape)
+                    .background(
+                        brush = Brush.radialGradient(
+                            colors = listOf(primaryAccent.copy(alpha = 0.25f), secondaryAccent.copy(alpha = 0.15f), Color.Transparent)
+                        )
+                    )
+            )
+        }
+
         Column(
             modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -130,14 +145,21 @@ fun MainPlayerView(
                         }
                     }
                     Text(
-                        text = "HELIOS TUNE",
-                        color = accent,
-                        fontSize = 12.sp,
+                        text = "HeliosTune",
+                        color = primaryAccent,
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        letterSpacing = 2.sp
+                        letterSpacing = 1.sp
                     )
                 }
                 Row {
+                    IconButton(onClick = onFavoriteToggle) {
+                        Icon(
+                            imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                            contentDescription = "Favorite",
+                            tint = if (isFavorite) HeliosColors.HeliosFlame else Color.White
+                        )
+                    }
                     IconButton(onClick = onOpenAudioSettings) {
                         Icon(Icons.Default.Speed, contentDescription = "Audio Settings", tint = Color.White)
                     }
@@ -150,7 +172,6 @@ fun MainPlayerView(
             // Theme Content Layout
             when (themeConfig.playerTheme) {
                 PlayerTheme.VINYL -> {
-                    // Vinyl Record layout
                     Box(
                         modifier = Modifier
                             .size(260.dp)
@@ -158,16 +179,16 @@ fun MainPlayerView(
                         contentAlignment = Alignment.Center
                     ) {
                         DynamicArtworkView(
-                            title = song.title,
-                            artist = song.artist,
+                            song = song,
                             style = themeConfig.dynamicArtStyle,
+                            primaryColor = primaryAccent,
+                            secondaryColor = secondaryAccent,
                             modifier = Modifier.size(260.dp),
                             cornerRadius = 130.dp
                         )
                     }
                 }
                 PlayerTheme.NOTHING -> {
-                    // Nothing OS Dot Matrix
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.padding(vertical = 12.dp)
@@ -175,13 +196,14 @@ fun MainPlayerView(
                         Box(
                             modifier = Modifier
                                 .size(240.dp)
-                                .border(2.dp, Color.White, RoundedCornerShape(24.dp))
+                                .border(2.dp, primaryAccent, RoundedCornerShape(24.dp))
                                 .padding(12.dp)
                         ) {
                             DynamicArtworkView(
-                                title = song.title,
-                                artist = song.artist,
+                                song = song,
                                 style = themeConfig.dynamicArtStyle,
+                                primaryColor = primaryAccent,
+                                secondaryColor = secondaryAccent,
                                 modifier = Modifier.fillMaxSize(),
                                 cornerRadius = 16.dp
                             )
@@ -189,16 +211,16 @@ fun MainPlayerView(
                     }
                 }
                 else -> {
-                    // Standard / Minimal / Pixel / OPPO hero artwork
                     Box(
                         modifier = Modifier
                             .size(260.dp)
                             .clip(RoundedCornerShape(themeConfig.cornerRadiusDp.dp))
                     ) {
                         DynamicArtworkView(
-                            title = song.title,
-                            artist = song.artist,
+                            song = song,
                             style = themeConfig.dynamicArtStyle,
+                            primaryColor = primaryAccent,
+                            secondaryColor = secondaryAccent,
                             modifier = Modifier.fillMaxSize(),
                             cornerRadius = themeConfig.cornerRadiusDp.dp
                         )
@@ -212,7 +234,7 @@ fun MainPlayerView(
                     isPlaying = isPlaying,
                     isEnabled = themeConfig.isVisualizerEnabled,
                     style = themeConfig.visualizerStyle,
-                    accentColor = accent,
+                    accentColor = primaryAccent,
                     spectrum = spectrum,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -253,7 +275,7 @@ fun MainPlayerView(
                     progressMs = progressMs,
                     durationMs = durationMs,
                     style = themeConfig.progressBarStyle,
-                    accentColor = accent,
+                    accentColor = primaryAccent,
                     onSeek = onSeek,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -277,7 +299,7 @@ fun MainPlayerView(
                 }
             }
 
-            // Playback Control Buttons
+            // Playback Control Buttons (Shuffle, Prev, Play/Pause, Next, Repeat)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly,
@@ -287,7 +309,7 @@ fun MainPlayerView(
                     Icon(
                         Icons.Default.Shuffle,
                         contentDescription = "Shuffle",
-                        tint = if (isShuffle) accent else Color.White.copy(alpha = 0.6f)
+                        tint = if (isShuffle) primaryAccent else Color.White.copy(alpha = 0.5f)
                     )
                 }
 
@@ -303,7 +325,7 @@ fun MainPlayerView(
                 CustomPlayButton(
                     isPlaying = isPlaying,
                     style = themeConfig.playButtonStyle,
-                    accentColor = accent,
+                    accentColor = primaryAccent,
                     onClick = onPlayPauseToggle
                 )
 
@@ -316,11 +338,11 @@ fun MainPlayerView(
                     )
                 }
 
-                IconButton(onClick = onFavoriteToggle) {
+                IconButton(onClick = onRepeatToggle) {
                     Icon(
-                        imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                        contentDescription = "Favorite",
-                        tint = if (isFavorite) HeliosColors.HeliosFlame else Color.White.copy(alpha = 0.6f)
+                        imageVector = if (repeatModeState == "ONE") Icons.Default.RepeatOne else Icons.Default.Repeat,
+                        contentDescription = "Repeat",
+                        tint = if (repeatModeState != "OFF") primaryAccent else Color.White.copy(alpha = 0.5f)
                     )
                 }
             }

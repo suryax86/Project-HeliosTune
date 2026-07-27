@@ -22,11 +22,20 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,11 +66,15 @@ fun HomeScreen(
     onFavoriteToggle: (Song) -> Unit,
     onPinToggle: (Song) -> Unit,
     onEditMetadata: (Song) -> Unit,
-    onCreatePlaylist: () -> Unit,
+    onCreatePlaylist: (String, String) -> Unit,
+    onPlaylistSelect: (Playlist) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val accent = HeliosColors.parseColor(themeConfig.accentColorHex)
     val heroSong = recentlyPlayed.firstOrNull() ?: favorites.firstOrNull() ?: allSongs.firstOrNull()
+    var showCreateDialog by remember { mutableStateOf(false) }
+    var newPlaylistName by remember { mutableStateOf("") }
+    var newPlaylistDesc by remember { mutableStateOf("") }
 
     LazyColumn(
         modifier = modifier
@@ -77,18 +90,17 @@ fun HomeScreen(
                     .padding(horizontal = 20.dp, vertical = 16.dp)
             ) {
                 Text(
-                    text = "HELIOS TUNE",
-                    color = accent,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 2.sp
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Your Music. Pure & Offline.",
+                    text = "HeliosTune",
                     color = Color.White,
-                    fontSize = 24.sp,
+                    fontSize = 28.sp,
                     fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "Your Music. Your Way.",
+                    color = accent,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
                 )
             }
         }
@@ -113,10 +125,12 @@ fun HomeScreen(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        val secondaryAccent = HeliosColors.parseColor(themeConfig.secondaryAccentHex)
                         DynamicArtworkView(
-                            title = heroSong.title,
-                            artist = heroSong.artist,
+                            song = heroSong,
                             style = themeConfig.dynamicArtStyle,
+                            primaryColor = accent,
+                            secondaryColor = secondaryAccent,
                             modifier = Modifier.size(80.dp),
                             cornerRadius = 16.dp
                         )
@@ -204,18 +218,23 @@ fun HomeScreen(
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold
                 )
-                IconButton(onClick = onCreatePlaylist) {
+                IconButton(onClick = { showCreateDialog = true }) {
                     Icon(Icons.Default.Add, contentDescription = "Create Playlist", tint = accent)
                 }
             }
         }
+
         item {
             LazyRow(
                 contentPadding = PaddingValues(horizontal = 20.dp),
                 horizontalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 items(playlists) { playlist ->
-                    PlaylistCard(playlist = playlist, themeConfig = themeConfig)
+                    PlaylistCard(
+                        playlist = playlist,
+                        themeConfig = themeConfig,
+                        onClick = { onPlaylistSelect(playlist) }
+                    )
                 }
             }
         }
@@ -258,6 +277,59 @@ fun HomeScreen(
             }
         }
     }
+
+    if (showCreateDialog) {
+        AlertDialog(
+            onDismissRequest = { showCreateDialog = false },
+            title = { Text("Create New Playlist", color = Color.White, fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = newPlaylistName,
+                        onValueChange = { newPlaylistName = it },
+                        label = { Text("Playlist Name") },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = accent,
+                            focusedLabelColor = accent
+                        ),
+                        singleLine = true
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    OutlinedTextField(
+                        value = newPlaylistDesc,
+                        onValueChange = { newPlaylistDesc = it },
+                        label = { Text("Description (Optional)") },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = accent,
+                            focusedLabelColor = accent
+                        ),
+                        singleLine = true
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (newPlaylistName.isNotBlank()) {
+                            onCreatePlaylist(newPlaylistName, newPlaylistDesc)
+                            newPlaylistName = ""
+                            newPlaylistDesc = ""
+                            showCreateDialog = false
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = accent)
+                ) {
+                    Text("Create", color = Color.Black, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCreateDialog = false }) {
+                    Text("Cancel", color = Color.White.copy(alpha = 0.7f))
+                }
+            },
+            containerColor = Color(0xFF1E1E24)
+        )
+    }
 }
 
 @Composable
@@ -277,15 +349,19 @@ private fun HorizontalSongCard(
     themeConfig: ThemeConfig,
     onClick: () -> Unit
 ) {
+    val primaryAccent = HeliosColors.parseColor(themeConfig.accentColorHex)
+    val secondaryAccent = HeliosColors.parseColor(themeConfig.secondaryAccentHex)
+
     Column(
         modifier = Modifier
             .width(130.dp)
             .clickable { onClick() }
     ) {
         DynamicArtworkView(
-            title = song.title,
-            artist = song.artist,
+            song = song,
             style = themeConfig.dynamicArtStyle,
+            primaryColor = primaryAccent,
+            secondaryColor = secondaryAccent,
             modifier = Modifier.size(130.dp),
             cornerRadius = 20.dp
         )
@@ -311,7 +387,8 @@ private fun HorizontalSongCard(
 @Composable
 private fun PlaylistCard(
     playlist: Playlist,
-    themeConfig: ThemeConfig
+    themeConfig: ThemeConfig,
+    onClick: () -> Unit
 ) {
     val accent = HeliosColors.parseColor(themeConfig.accentColorHex)
     Box(
@@ -323,6 +400,7 @@ private fun PlaylistCard(
                     colors = listOf(accent.copy(alpha = 0.4f), Color(0xFF23232A))
                 )
             )
+            .clickable { onClick() }
             .padding(14.dp),
         contentAlignment = Alignment.BottomStart
     ) {
@@ -336,7 +414,7 @@ private fun PlaylistCard(
                 overflow = TextOverflow.Ellipsis
             )
             Text(
-                text = playlist.description,
+                text = playlist.description.ifEmpty { "Playlist" },
                 color = Color.White.copy(alpha = 0.7f),
                 fontSize = 12.sp,
                 maxLines = 1,

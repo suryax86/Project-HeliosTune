@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -18,25 +17,52 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.DynamicArtStyle
+import com.example.data.model.Song
 import com.example.theme.HeliosColors
 import kotlin.math.abs
+
+@Composable
+fun DynamicArtworkView(
+    song: Song,
+    style: DynamicArtStyle = DynamicArtStyle.GRADIENT,
+    primaryColor: Color? = null,
+    secondaryColor: Color? = null,
+    modifier: Modifier = Modifier,
+    cornerRadius: Dp = 16.dp
+) {
+    DynamicArtworkView(
+        title = song.title,
+        artist = song.artist,
+        style = style,
+        primaryColor = primaryColor,
+        secondaryColor = secondaryColor,
+        modifier = modifier,
+        cornerRadius = cornerRadius
+    )
+}
 
 @Composable
 fun DynamicArtworkView(
     title: String,
     artist: String,
     style: DynamicArtStyle = DynamicArtStyle.GRADIENT,
+    primaryColor: Color? = null,
+    secondaryColor: Color? = null,
     modifier: Modifier = Modifier,
     cornerRadius: Dp = 16.dp
 ) {
     val hash = abs((title + artist).hashCode())
-    val palette = getPaletteForHash(hash)
+    val basePalette = getPaletteForHash(hash)
+    val palette = Triple(
+        basePalette.first,
+        primaryColor ?: basePalette.second,
+        secondaryColor ?: basePalette.third
+    )
 
     Box(
         modifier = modifier
@@ -166,30 +192,7 @@ fun DynamicArtworkView(
             }
         }
 
-        // Overlay Title and Artist for Lettermark & Text Styles
-        if (style != DynamicArtStyle.VINYL && style != DynamicArtStyle.CASSETTE) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(12.dp),
-                contentAlignment = Alignment.BottomStart
-            ) {
-                Box(
-                    modifier = Modifier
-                        .background(Color.Black.copy(alpha = 0.35f), RoundedCornerShape(8.dp))
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                ) {
-                    Text(
-                        text = title.takeIf { it.isNotEmpty() } ?: "Helios",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 12.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-        }
+        // Clean graphical artwork canvas without text overlays
     }
 }
 

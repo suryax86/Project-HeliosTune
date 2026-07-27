@@ -2,6 +2,7 @@ package com.example.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,11 +18,15 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -48,10 +53,14 @@ fun SongItemCard(
     onFavoriteToggle: () -> Unit,
     onPinToggle: () -> Unit,
     onEditMetadata: () -> Unit,
+    onAddToQueue: (() -> Unit)? = null,
+    onPlayNext: (() -> Unit)? = null,
+    onAddToPlaylist: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val accent = HeliosColors.parseColor(themeConfig.accentColorHex)
     var showMenu by remember { mutableStateOf(false) }
+    var showSongInfoDialog by remember { mutableStateOf(false) }
 
     Row(
         modifier = modifier
@@ -63,10 +72,13 @@ fun SongItemCard(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(modifier = Modifier.size(52.dp)) {
+            val primaryAccent = HeliosColors.parseColor(themeConfig.accentColorHex)
+            val secondaryAccent = HeliosColors.parseColor(themeConfig.secondaryAccentHex)
             DynamicArtworkView(
-                title = song.title,
-                artist = song.artist,
+                song = song,
                 style = themeConfig.dynamicArtStyle,
+                primaryColor = primaryAccent,
+                secondaryColor = secondaryAccent,
                 modifier = Modifier.size(52.dp),
                 cornerRadius = 14.dp
             )
@@ -121,7 +133,7 @@ fun SongItemCard(
             IconButton(onClick = { showMenu = true }) {
                 Icon(
                     Icons.Default.MoreVert,
-                    contentDescription = "More",
+                    contentDescription = "More Options",
                     tint = Color.White.copy(alpha = 0.6f),
                     modifier = Modifier.size(20.dp)
                 )
@@ -132,20 +144,76 @@ fun SongItemCard(
                 onDismissRequest = { showMenu = false }
             ) {
                 DropdownMenuItem(
+                    text = { Text("Add to play queue") },
+                    onClick = {
+                        showMenu = false
+                        onAddToQueue?.invoke()
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text("Play next") },
+                    onClick = {
+                        showMenu = false
+                        onPlayNext?.invoke()
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text("Add to playlist") },
+                    onClick = {
+                        showMenu = false
+                        onAddToPlaylist?.invoke()
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text("Song info") },
+                    onClick = {
+                        showMenu = false
+                        showSongInfoDialog = true
+                    }
+                )
+                DropdownMenuItem(
                     text = { Text(if (song.isPinned) "Unpin Song" else "Pin Song") },
                     onClick = {
                         showMenu = false
                         onPinToggle()
                     }
                 )
-                DropdownMenuItem(
-                    text = { Text("Edit Metadata") },
-                    onClick = {
-                        showMenu = false
-                        onEditMetadata()
-                    }
-                )
             }
         }
+    }
+
+    if (showSongInfoDialog) {
+        AlertDialog(
+            onDismissRequest = { showSongInfoDialog = false },
+            title = { Text("Song Info", color = Color.White, fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Title: ${song.title}", color = Color.White, fontSize = 14.sp)
+                    Text("Artist: ${song.artist}", color = Color.White, fontSize = 14.sp)
+                    Text("Album: ${song.album}", color = Color.White, fontSize = 14.sp)
+                    Text("Genre: ${song.genre.ifEmpty { "Unknown" }}", color = Color.White, fontSize = 14.sp)
+                    Text("Duration: ${song.getFormattedDuration()}", color = Color.White, fontSize = 14.sp)
+                    Text("Year: ${if (song.year > 0) song.year else "N/A"}", color = Color.White, fontSize = 14.sp)
+                    Text("Path: ${song.path.ifEmpty { "Built-in Preset" }}", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showSongInfoDialog = false
+                        onEditMetadata()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = accent)
+                ) {
+                    Text("Edit song info", color = Color.Black, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSongInfoDialog = false }) {
+                    Text("Close", color = Color.White.copy(alpha = 0.7f))
+                }
+            },
+            containerColor = Color(0xFF1E1E24)
+        )
     }
 }

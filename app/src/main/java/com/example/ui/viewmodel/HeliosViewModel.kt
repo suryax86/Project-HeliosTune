@@ -81,6 +81,7 @@ class HeliosViewModel(application: Application) : AndroidViewModel(application) 
     val themeConfig: StateFlow<ThemeConfig> = themeManager.config
 
     init {
+        themeManager.initContext(application)
         viewModelScope.launch {
             repository.initializeDatabaseIfEmpty()
         }

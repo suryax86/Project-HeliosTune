@@ -74,18 +74,32 @@ enum class PlayButtonStyle(val displayName: String, val description: String) {
     CYBER_GLOW("Cyber Glow", "Pulsing neon glowing center control")
 }
 
+data class ColorCombinationPreset(
+    val name: String,
+    val primaryHex: String,
+    val secondaryHex: String,
+    val description: String
+)
+
 data class ThemeConfig(
     val playerTheme: PlayerTheme = PlayerTheme.MINIMAL,
-    val accentColorHex: String = "#FFB300", // Helios Gold
+    val accentColorHex: String = "#FFB300", // Helios Gold (Primary Accent)
+    val secondaryAccentHex: String = "#FF6D00", // Helios Flame (Secondary Accent)
+    val colorCombinationPresetName: String = "Helios Sunset",
     val isAmoledMode: Boolean = true,
     val isMaterialYou: Boolean = false,
     val cornerRadiusDp: Int = 20,
     val glassBlurAmount: Float = 0.5f,
+    val isAnimationsEnabled: Boolean = true,
+    val isBlurEffectEnabled: Boolean = true,
+    val blurRadiusDp: Int = 20,
     val isVisualizerEnabled: Boolean = true,
     val progressBarStyle: ProgressBarStyle = ProgressBarStyle.SLIDER,
     val playButtonStyle: PlayButtonStyle = PlayButtonStyle.CIRCULAR_FILLED,
     val visualizerStyle: VisualizerStyle = VisualizerStyle.BARS,
     val dynamicArtStyle: DynamicArtStyle = DynamicArtStyle.GRADIENT,
+    val notificationPlayerStyle: String = "YouTube Music Glow",
+    val widgetStyle: String = "YouTube Music Dynamic Wave",
     val appIconId: String = "icon_helios_gold",
     val isRotateArtwork: Boolean = false,
     val isGaplessPlayback: Boolean = true,

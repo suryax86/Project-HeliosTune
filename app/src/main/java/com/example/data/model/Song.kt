@@ -23,4 +23,18 @@ data class Song(
     val lastPlayedTimestamp: Long = 0L,
     val isPinned: Boolean = false,
     val folderPath: String = ""
-)
+) {
+    fun getFormattedDuration(): String {
+        val totalSeconds = (durationMs / 1000).toInt()
+        val minutes = totalSeconds / 60
+        val seconds = totalSeconds % 60
+        return String.format("%02d:%02d", minutes, seconds)
+    }
+
+    fun getFormattedPosition(posMs: Long): String {
+        val totalSeconds = (posMs / 1000).toInt()
+        val minutes = totalSeconds / 60
+        val seconds = totalSeconds % 60
+        return String.format("%02d:%02d", minutes, seconds)
+    }
+}
