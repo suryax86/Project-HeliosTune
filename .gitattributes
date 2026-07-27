@@ -1,0 +1,15 @@
+# Explicitly declare text files to handle line endings properly
+* text=auto
+
+# Declare binary files to prevent Git from altering line endings or corrupting binaries
+*.jar binary
+*.class binary
+*.so binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.keystore binary
+*.jks binary
