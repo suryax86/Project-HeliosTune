@@ -1,0 +1,6 @@
+{
+  "name": "Helios Tune",
+  "description": "Modern, premium, open-source local Android music player with rich theme engine, visualizers, custom icons, and dynamic artwork.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
